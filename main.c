@@ -13,7 +13,7 @@ void UARTSetup(void)
     P4SEL |= (BIT4+BIT5);                   // Allows BIT4 to become the TXD output and BIT5 to become the RXD input
     UCA1CTL1 |= UCSWRST;                    // State Machine Reset + Small Clock Initialization
     UCA1CTL1 |= UCSSEL_2;                   // Sets USCI Clock Source to SMCLK
-    UCA1BR0 = 9;
+    UCA1BR0 = 9;			    // Sets Baud Rate to 115200
     UCA1BR1 = 0;
     UCA1MCTL = UCBRS_1+UCBRF_0;               // Modulation UCBRSx=1, UCBRFx=0
     UCA1CTL1 &= ~UCSWRST;                     // **Initialize USCI state machine**                  // Initialize USCI State Machine
@@ -33,13 +33,10 @@ int main(void)
     UARTSetup();
 
     P1IE |= BIT5;
-    P1IES |= BIT5;
+    P1IES |= BIT5;			// Detects a low to high transition at P1.5
     P2IE |= BIT0;
-    P2IES |= BIT0;
+    P2IES |= BIT0;			// Detects a low to high transition at P2.0
     P2IFG &= ~BIT0;
-
-    P2DIR |= BIT5;
-    P2OUT &= ~BIT5;
 
 	while(1)
 	{
@@ -50,7 +47,7 @@ int main(void)
 	    __no_operation();                       // For debugger
 
 	    __delay_cycles(750000);
-	    if ((light == 1) | (move == 1))
+	    if ((light == 1) | (move == 1))		// If the light is on or motion is detected, the room is occupied
 	    {
 	        while(!(UCA1IFG & UCTXIFG));
 	       UCA1TXBUF = 'R';
@@ -85,7 +82,7 @@ int main(void)
             while(!(UCA1IFG & UCTXIFG));
             UCA1TXBUF = '\n';
 	    }
-	    else
+	    else		// Else the room is inoccupied
 	    {
 	        while(!(UCA1IFG & UCTXIFG));
 	        UCA1TXBUF = 'R';
@@ -230,7 +227,7 @@ __interrupt void Port_1 (void)
                 while(!(UCA1IFG & UCTXIFG));
                 UCA1TXBUF = ' ';
 
-    if ((P1IES & BIT5) == !BIT5)
+    if ((P1IES & BIT5) == !BIT5) 		// Detects low to high transition stating that a light is on
     {
                   light = 1;
                   while(!(UCA1IFG & UCTXIFG));
@@ -245,7 +242,7 @@ __interrupt void Port_1 (void)
                   UCA1TXBUF = '\n';
 
     }
-    else if ((P1IES & BIT5) == BIT5)
+    else if ((P1IES & BIT5) == BIT5)		// Detects high to low transition stating that a light is off
     {
                   light = 0;
                   while(!(UCA1IFG & UCTXIFG));
@@ -266,7 +263,7 @@ __interrupt void Port_1 (void)
 #pragma vector=PORT2_VECTOR
 __interrupt void Port_2 (void)
 {
-                       if ((P2IES & BIT0) == !BIT0)
+                       if ((P2IES & BIT0) == !BIT0)			// Detects a high to low transition stating that motion is detected
                        {
                        move = 1;
                        while(!(UCA1IFG & UCTXIFG));
@@ -302,43 +299,12 @@ __interrupt void Port_2 (void)
                        while(!(UCA1IFG & UCTXIFG));
                        UCA1TXBUF = '\n';    // Enter
                        }
-                       else if ((P2IES & BIT0) == BIT0)
+                       else if ((P2IES & BIT0) == BIT0)			// Detects a low to high transition stating that motion is not detected
                        {
                            move = 0;
                        }
                        P2IFG &= ~BIT0;
-                      // __delay_cycles(10);
 }
-
-/*#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-#pragma vector = USCI_B0_VECTOR
-__interrupt void USCI_B0_ISR(void)
-#elif defined(__GNUC__)
-void __attribute__ ((interrupt(USCI_B0_VECTOR))) USCI_B0_ISR (void)
-#else
-#error Compiler not supported!
-#endif
-{
-  switch(__even_in_range(UCB0IV,12))
-  {
-  case  0: break;                           // Vector  0: No interrupts
-  case  2: break;                           // Vector  2: ALIFG
-  case  4: break;                           // Vector  4: NACKIFG
-  case  6: break;                           // Vector  6: STTIFG
-  case  8: break;                           // Vector  8: STPIFG
-  case 10: break;                           // Vector 10: RXIFG
-  case 12:                                  // Vector 12: TXIFG
-    {
-      temp = UCB1RXBUF;
-      UCB1TXBUF = temp;
-      UCB0CTL1 |= UCTXSTP;                  // I2C stop condition
-      UCB0IFG &= ~UCTXIFG;                  // Clear USCI_B0 TX int flag
-      __bic_SR_register_on_exit(LPM0_bits); // Exit LPM0
-    }
-    ADC12IFG = 1;
-  default: break;
-  }
-}*/
 
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=USCI_A1_VECTOR
@@ -357,12 +323,3 @@ void __attribute__ ((interrupt(USCI_A1_VECTOR))) USCI_A1_ISR (void)
     default: break;
     }
 }
-
-// Timer A0 interrupt service routine
-/*#pragma vector=TIMER0_A0_VECTOR
-__interrupt void Timer_A (void)
-{
-    move = 0;
-    P2OUT &= ~BIT5;
-    TA0CTL |= MC_0 + TACLR;
-}*/
